@@ -1,0 +1,464 @@
+#include "Board.h"
+#include <QPainter>
+#include <QDebug>
+//棋盘的构造函数（初始化棋盘数据）
+Board::Board(QWidget *parent) : QWidget(parent)
+{
+    for(int i=0;i<32;i++)
+    {
+        _s[i].init(i);
+    }
+    _selectid=-1;
+    _bRedTurn=true;
+}
+
+void Board::paintEvent(QPaintEvent *)
+{
+
+    QPainter painter(this);
+    int d=40;
+    _r=d/2;
+    //画10条横线
+    for(int i=1;i<=10;i++)
+        painter.drawLine(QPoint(d,i*d),QPoint(9*d,i*d));
+    //画9条竖线
+    for(int i=1;i<=9;i++)
+    {
+        if(i==1||i==9)
+            painter.drawLine(QPoint(i*d,d),QPoint(i*d,10*d));
+        else
+        {
+            painter.drawLine(QPoint(i*d,d),QPoint(i*d,5*d));
+            painter.drawLine(QPoint(i*d,6*d),QPoint(i*d,10*d));
+        }
+    }
+    //画九宫格
+    painter.drawLine(QPoint(4*d,d),QPoint(6*d,3*d));
+    painter.drawLine(QPoint(6*d,d),QPoint(4*d,3*d));
+    painter.drawLine(QPoint(4*d,8*d),QPoint(6*d,10*d));
+    painter.drawLine(QPoint(4*d,10*d),QPoint(6*d,8*d));
+
+    //绘制32颗棋子
+    for(int i=0;i<32;i++)
+    {
+        drawStone(painter,i);
+    }
+}
+
+void Board::drawStone(QPainter& painter,int id)
+{
+    //先判断一下棋子死没死 如果死了就不画出来了
+    if(_s[id]._dead)
+        return;
+
+    QPoint c = center(id);
+    QRect rect = QRect(c.x()-_r,c.y()-_r,_r*2,_r*2);
+
+    if(id == _selectid)
+        painter.setBrush(QBrush(Qt::gray));
+    else
+        painter.setBrush(QBrush(Qt::yellow));
+
+    if(_s[id]._red)
+        painter.setPen(Qt::red);
+    else
+        painter.setPen(Qt::black);
+
+    //画圆
+    painter.drawEllipse(center(id),_r,_r);
+
+    painter.setFont(QFont("system",_r,700));
+
+    //写棋名
+    painter.drawText(rect,_s[id].getText(),QTextOption(Qt::AlignCenter));
+}
+
+//输入行列坐标 返回像素坐标
+QPoint Board::center(int row,int col)
+{
+    QPoint ret;
+    ret.rx()=(col+1)*_r*2;
+    ret.ry()=(row+1)*_r*2;
+    return ret;
+}
+
+//输入棋子的id 返回像素坐标
+QPoint Board::center(int id)
+{
+    return center(_s[id]._row,_s[id]._col);
+}
+
+//鼠标释放回调函数
+void Board::mouseReleaseEvent(QMouseEvent *ev)
+{
+    QPoint pt = ev->pos();
+
+    //将pt转化成象棋的行列值
+    //判断行列值上有没有棋子
+    int row,col;
+    //确定鼠标点击的位置是否有棋子
+    bool bClicked = getRowCol(pt,row,col);
+    if(!bClicked)//点到棋子外
+        return;
+
+    int id=getStoneId(row,col);
+    click(id,row,col);
+}
+
+//传入鼠标点击的像素坐标返回鼠标点击的位置是否有棋子
+bool Board::getRowCol(QPoint pt,int &row,int &col)
+{
+    for(row=0;row<=9;row++)
+        for(col=0;col<=8;col++)
+        {
+            QPoint c = center(row,col);
+            int dx = c.x() - pt.x();
+            int dy = c.y() - pt.y();
+            int dist = dx*dx + dy*dy;
+            if(dist<_r*_r)
+                return true;
+        }
+    return false;
+}
+
+bool Board::canMove(int moveid, int row, int col, int killid)
+{
+    if(killid==-1||!_s[moveid]._red==_s[killid]._red)
+    {
+        switch(_s[moveid]._type)
+        {
+        case Stone::JIANG:
+            return canMove1(moveid,row,col,killid);
+            break;
+        case Stone::SHI:
+            return canMove2(moveid,row,col,killid);
+            break;
+        case Stone::XIANG:
+            return canMove3(moveid,row,col,killid);
+            break;
+        case Stone::CHE:
+            return canMove4(moveid,row,col,killid);
+            break;
+        case Stone::MA:
+            return canMove5(moveid,row,col,killid);
+            break;
+        case Stone::PAO:
+            return canMove6(moveid,row,col,killid);
+            break;
+        case Stone::BING:
+            return canMove7(moveid,row,col,killid);
+            break;
+        default: break;
+        }
+    }
+
+    if(_s[moveid]._red==_s[killid]._red/*killid超出下标范围值_red的值为false*/)
+    {
+        /*换选择*/
+        _selectid=killid;
+        update();
+        return false;
+    }
+    return true;
+}
+
+
+bool Board::canMove1(int moveid,int row,int col,int killid)
+{
+    /*
+        将的行走规则:
+        1.只能在九宫内行走
+        2.移动的步长是一个格子
+    */
+
+    /*flag_be用来判断两个将之间有没有棋子*/
+    int flag_be=0;
+    int flag_buchang=0;
+    int i;
+
+    if(col<3) return false;
+    if(col>5) return false;
+
+    int dr=_s[moveid]._row-row;
+    int dc=_s[moveid]._col-col;
+    int d=abs(dr)*10+abs(dc);
+    if(d==1||d==10)
+        flag_buchang=1;
+
+    if(_s[moveid]._red)
+    {
+        if(killid!=-1&&_s[moveid]._col==_s[20]._col)
+        {
+            for(i=_s[moveid]._row+1;i<_s[20]._row;i++)
+            {
+                if(beStone(i,_s[moveid]._col)==true)
+                {
+                    flag_be=1;
+                    break;
+                }
+            }
+        }
+        //在田字格里面走
+        if(row<=2&&row>=0&&flag_buchang==1) return true;
+        else if(killid!=20&&flag_be==0) return true;
+
+    }
+    else
+    {
+        if(killid!=-1&&_s[moveid]._col==_s[4]._col)
+        {
+            for(i=_s[moveid]._row-1;i>_s[4]._row;i--)
+            {
+                if(beStone(i,_s[moveid]._col)==true)
+                {
+                    flag_be=1;
+                    break;
+                }
+            }
+        }
+        if(row>=7&&row<=9&&flag_buchang==1) return true;
+        else if(killid==4&&flag_be==0) return true;
+    }
+
+    return false;
+}
+
+bool Board::canMove2(int moveid,int row,int col,int killid)
+{
+    /*士的走棋规则*/
+    if(_s[moveid]._red)
+    {
+        if(row>2) return false;
+    }
+    else
+    {
+        if(row<7) return false;
+    }
+
+    if(col<3) return false;
+    if(col>5) return false;
+
+    int dr=_s[moveid]._row-row;
+    int dc=_s[moveid]._col-col;
+    int d=abs(dr)*10+abs(dc);
+    if(d==11)
+        return true;
+
+    return false;
+}
+bool Board::canMove3(int moveid,int row,int col,int killid)
+{
+    /*象的走棋规则:
+        1.走田字格
+        2.不能过河
+        3.考虑别象眼
+    */
+
+    /********不能过河********/
+    if(_s[moveid]._red)
+    {
+        if(row>4) return false;
+    }
+    else
+    {
+        if(row<5) return false;
+    }
+    /********不能过河********/
+
+    /******走田字格******/
+    int dr=_s[moveid]._row-row;
+    int dc=_s[moveid]._col-col;
+    int medium_r=(_s[moveid]._row+row)/2;
+    int medium_c=(_s[moveid]._col+col)/2;
+    if(abs(dc)==2&&abs(dr)==2)
+        /*别象眼检验*/
+        if(beStone(medium_r,medium_c)==false)
+            return true;
+    /******走田字格******/
+    return false;
+}
+bool Board::canMove4(int moveid,int row,int col,int killid)
+{
+    /*车只能直着走*/
+    if(num_of_Stone(moveid,row,col)==0)
+        return true;
+
+    return false;
+}
+bool Board::canMove5(int moveid,int row,int col,int killid)
+{
+    /*马的走棋规则:
+        1.走日字格
+        2.考虑别马腿
+     */
+    int dr=_s[moveid]._row-row;
+    int dc=_s[moveid]._col-col;
+    int d=abs(dr)*10+abs(dc);
+    int medium_r=(_s[moveid]._row+row)/2;
+    int medium_c=(_s[moveid]._col+col)/2;
+    if(d==21||d==12)
+    {
+        if(abs(dr)==2)
+        {
+            if(beStone(medium_r,_s[moveid]._col)==false)
+                return true;
+        }
+        else
+        {
+            if(beStone(_s[moveid]._row,medium_c)==false)
+                return true;
+        }
+    }
+    return false;
+}
+bool Board::canMove6(int moveid,int row,int col,int killid)
+{
+    /*炮的走棋规则*/
+    if(num_of_Stone(moveid,row,col)==1&&killid!=-1||(num_of_Stone(moveid,row,col)==0&&killid==-1))
+        return true;
+
+    return false;
+}
+bool Board::canMove7(int moveid,int row,int col,int killid)
+{
+    /*兵的走棋规则*/
+    int dr=_s[moveid]._row-row;
+    int dc=_s[moveid]._col-col;
+    int d=abs(dr)*10+abs(dc);
+
+    if(_s[moveid]._red) //红棋
+    {
+        if(_s[moveid]._row>=3&&_s[moveid]._row<=4) //过河前
+        {
+            if(dr==-1&&dc==0)   //竖着走
+                return true;
+            else       //横着走
+                return false;
+        }
+        else   //过河后
+        {
+            if(d==10||d==1)
+            {
+                if(dr==1)   //竖着走
+                    return false;  //竖着走走了回头路就要返回错误
+                else      //横着走
+                    return true;
+            }
+            else
+                return false;
+        }
+    }
+    else              //黑棋
+    {
+        if(_s[moveid]._row>=5&&_s[moveid]._row<=6)
+        {
+            if(dr==1&&dc==0)
+                return true;
+            else
+                return false;
+        }
+        else
+        {
+            if(d==10||d==1)
+            {
+                if(dr==-1)
+                    return false;
+                else
+                    return true;
+            }
+            else
+                return false;
+        }
+    }
+
+    return true;
+}
+
+/*确定某个行列位置上是否有棋子*/
+bool Board::beStone(int row,int col)
+{
+    for(int i=0;i<32;i++)
+        if(_s[i]._row==row&&_s[i]._col==col)
+                return true;
+
+    return false;
+}
+/*输入行列获取棋子id*/
+int Board::getStoneId(int row,int col)
+{
+    for(int i=0;i<32;i++)
+        if(_s[i]._row==row&&_s[i]._col==col&&_s[i]._dead==false)
+            return i;
+    return -1;
+}
+void Board::click(int id,int row,int col)
+{
+    if(_selectid==-1)
+    {
+        if(id!=-1)
+        {
+            if(_bRedTurn==_s[id]._red)
+            _selectid=id;
+            update();
+        }
+    }
+    else
+    {
+        if(canMove(_selectid,row,col,id))
+        {
+            /*走棋*/
+            _s[_selectid]._row=row;
+            _s[_selectid]._col=col;
+            if(id!=-1)
+            {
+                _s[id]._dead=true;
+                //棋子死后行列要置到棋盘外!!!
+                _s[id]._row=100;
+                _s[id]._col=100;
+            }
+            _selectid=-1;
+            _bRedTurn=!_bRedTurn;
+            update();
+        }
+    }
+}
+int Board::num_of_Stone(int moveid,int row,int col)
+{
+    int i;
+    int sum=0;
+    if(_s[moveid]._row==row)
+    {
+        if(col-_s[moveid]._col>0)
+            for(i=_s[moveid]._col+1;i<col;i++)
+            {
+                if(beStone(_s[moveid]._row,i)==true)
+                    sum++;
+            }
+        else
+            for(i=_s[moveid]._col-1;i>col;i--)
+            {
+                if(beStone(_s[moveid]._row,i)==true)
+                    sum++;
+            }
+        return sum;
+    }
+    else if(_s[moveid]._col==col)
+    {
+        if(row-_s[moveid]._row>0)
+            for(i=_s[moveid]._row+1;i<row;i++)
+            {
+                if(beStone(i,_s[moveid]._col)==true)
+                    sum++;
+            }
+        else
+            for(i=_s[moveid]._row-1;i>row;i--)
+            {
+                if(beStone(i,_s[moveid]._col)==true)
+                    sum++;
+            }
+        return sum;
+    }
+
+    //两个棋子不在一条直线上
+    return -1;
+}
