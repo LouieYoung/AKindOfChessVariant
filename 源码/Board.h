@@ -4,9 +4,11 @@
 #include <QStack>
 #include <QWidget>
 #include "Stone.h"
+#include "Step.h"
 #include <QMouseEvent>
 #include <QSlider>
 #include<QPushButton>
+
 
 class Board : public QWidget
 {
@@ -33,14 +35,16 @@ public:
     //选中棋子的id
     int _selectid;
     //将帅四周有没有气
-    int qir;
     int qib;
+    int qir;
     //胜者即是正义
     STATE _state;
     int sta=0;
     //悔棋功能
     QStack <Stone> stone[32];
     QStack <Board> board;
+    QVector<Step*> _steps;
+
 
     //该不该红棋走
     bool _bRedTurn;
@@ -101,16 +105,22 @@ public:
     void mouseMoveEvent(QMouseEvent *);
 
     virtual void click(int id,int row,int col);
+    void moveto(int moveid,int row,int col,int killid);
 
 
 
 signals:
 
 public slots:
+        //缩放
         void change(int value);
+        //悔棋
         void bm();
+        //初始化
         void go();
+        //兑子
         void dz();
+        //退出
         void qt();
 };
 

@@ -28,22 +28,23 @@ public:
             Stone::TYPE type;
         }pos[16] =
         {
+
         {0,0,Stone::CHE},
         {0,8,Stone::CHE},
         {0,1,Stone::MA},
         {0,7,Stone::MA},
         {0,2,Stone::XIANG},
         {0,6,Stone::XIANG},
-        {0,3,Stone::SHI},
         {0,5,Stone::SHI},
+        {0,3,Stone::SHI},
         {0,4,Stone::PAO},
         {1,4,Stone::PAO},
 
-        {2,0,Stone::BING},
         {2,2,Stone::BING},
         {2,4,Stone::BING},
         {2,6,Stone::BING},
         {2,8,Stone::BING},
+        {2,0,Stone::BING},
 
         {3,4,Stone::JIANG},
         };

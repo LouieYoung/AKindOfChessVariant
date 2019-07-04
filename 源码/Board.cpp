@@ -50,23 +50,25 @@ Board::Board(QWidget *parent) : QWidget(parent)
     button4 = new QPushButton(this);
     connect(button4,SIGNAL(clicked(bool)),this,SLOT(qt()));
 
-    change(50);
+    change(64);
 }
+
+//缩放
 void Board::change(int value)
 {
     d=value;
     pSlider->setGeometry(10,-d/4,2*d,d/2);
     button1->setGeometry(QRect(10*d,7*d,d,d));
-    button1->setFont(QFont("STKaiti", d/4, QFont::Normal));
+    button1->setFont(QFont("STKaiti", d/5, QFont::Normal));
     button1->setText(QString::fromLocal8Bit("悔棋"));
     button2->setGeometry(QRect(10*d,8*d,d,d));
-    button2->setFont(QFont("STKaiti", d/4, QFont::Normal));
+    button2->setFont(QFont("STKaiti", d/5, QFont::Normal));
     button2->setText(QString::fromLocal8Bit("重来"));
     button3->setGeometry(QRect(11*d,7*d,d,d));
-    button3->setFont(QFont("STKaiti", d/4, QFont::Normal));
+    button3->setFont(QFont("STKaiti", d/5, QFont::Normal));
     button3->setText(QString::fromLocal8Bit("兑子"));
     button4->setGeometry(QRect(11*d,8*d,d,d));
-    button4->setFont(QFont("STKaiti", d/4, QFont::Normal));
+    button4->setFont(QFont("STKaiti", d/5, QFont::Normal));
     button4->setText(QString::fromLocal8Bit("退出"));
 }
 
@@ -137,6 +139,7 @@ void Board::dz()
                    _s[i]._row=100;
                    _s[i]._col=100;
                    kill+=1;
+                   break;
                }
             }
         }
@@ -151,6 +154,7 @@ void Board::dz()
                    _s[i]._row=100;
                    _s[i]._col=100;
                    kill+=1;
+                   break;
                }
             }
         }
@@ -165,6 +169,7 @@ void Board::dz()
                    _s[i]._row=100;
                    _s[i]._col=100;
                    kill+=1;
+                   break;
                }
             }
         }
@@ -179,6 +184,7 @@ void Board::dz()
                    _s[i]._row=100;
                    _s[i]._col=100;
                    kill+=1;
+                   break;
                }
             }
         }
@@ -198,7 +204,8 @@ void Board::dz()
                         stone[i].pop();
                     }
                 }
-            _bRedTurn=!_bRedTurn;
+            //没有兑子时不需要改变执子方
+            //_bRedTurn=!_bRedTurn;
             update();
             return;
         }
@@ -207,6 +214,7 @@ void Board::dz()
             update();
             return;
     }
+    //黑方兑子时类似上面红方代码
     else if(!_bRedTurn)
     {
         for(int i=26;i<31;i++)
@@ -254,6 +262,7 @@ void Board::dz()
                    _s[i]._row=100;
                    _s[i]._col=100;
                    kill+=1;
+                   break;
                }
             }
         }
@@ -268,6 +277,7 @@ void Board::dz()
                    _s[i]._row=100;
                    _s[i]._col=100;
                    kill+=1;
+                   break;
                }
             }
         }
@@ -282,6 +292,7 @@ void Board::dz()
                    _s[i]._row=100;
                    _s[i]._col=100;
                    kill+=1;
+                   break;
                }
             }
         }
@@ -296,6 +307,7 @@ void Board::dz()
                    _s[i]._row=100;
                    _s[i]._col=100;
                    kill+=1;
+                   break;
                }
             }
         }
@@ -315,7 +327,7 @@ void Board::dz()
                         stone[i].pop();
                     }
                 }
-            _bRedTurn=!_bRedTurn;
+            //_bRedTurn=!_bRedTurn;
             update();
             return;
         }
@@ -369,17 +381,26 @@ void Board::go()
     _state=PLAYING;
     update();
 }
-
+//悔棋
 void Board::bm()
 {
-    backMove();
-    _bRedTurn=!_bRedTurn;
-    for(int i;i<32;i++)
+    if(_dz)
     {
-        _s[i]._select=false;
+        return;
     }
-    _selectid=-1;
-    _state=PLAYING;
+    backMove();
+    if(stone->length()==0){
+        go();
+    }
+    if(stone->length()>0){
+        _bRedTurn=!_bRedTurn;
+        for(int i = 0;i<32;i++)
+        {
+            _s[i]._select=false;
+        }
+        _selectid=-1;
+        _state=PLAYING;
+    }
     update();
 }
 //画
@@ -442,9 +463,17 @@ void Board::paintEvent(QPaintEvent *)
     drawState(painter);
 
     //绘制开发者信息
-    //QRect rect = QRect(10*d,d,2*d,d);
-    //painter.setFont(QFont("STKaiti", d/5, QFont::Normal));
-    //painter.drawText(rect,QString::fromLocal8Bit("开发者の微博：""@如意羊_贾伯斯"),QTextOption(Qt::AlignCenter));
+    QRect rect = QRect(10*d,d,2*d,d);
+    painter.setFont(QFont("STKaiti", d/4, QFont::Normal));
+    if(_bRedTurn)
+    {
+        painter.drawText(rect,QString::fromLocal8Bit("红方执子"),QTextOption(Qt::AlignCenter));
+    }else{
+        painter.drawText(rect,QString::fromLocal8Bit("黑方执子"),QTextOption(Qt::AlignCenter));
+    }
+    rect = QRect(9*d+d/2,2*d,3*d,2*d);
+    painter.setFont(QFont("STKaiti", d/7, QFont::Normal));
+    painter.drawText(rect,QString::fromLocal8Bit("开发者の微博：\n""@如意羊_贾伯斯"),QTextOption(Qt::AlignCenter));
 }
 
 void Board::drawStone(QPainter& painter,int id)
@@ -479,7 +508,7 @@ void Board::drawStone(QPainter& painter,int id)
         painter.drawEllipse(c,_r-4,_r-4);
     }
     //改变字体
-    painter.setFont(QFont("STKaiti", d/2, QFont::Normal));
+    painter.setFont(QFont("STKaiti", d/3, QFont::Normal));
     //写棋名
 //    if(_s[id]._red)
 //    {
@@ -519,7 +548,7 @@ void Board::drawState(QPainter& painter)
     }
     painter.drawEllipse(10*d,4*d,2*d,2*d);
     //改变字体大小
-    painter.setFont(QFont("STKaiti", 4*d/9, QFont::Normal));
+    painter.setFont(QFont("STKaiti", d/3, QFont::Normal));
     //写对局状态
     painter.drawText(rect,getState(),QTextOption(Qt::AlignCenter));
 }
@@ -786,7 +815,7 @@ bool Board::canMove5(int moveid,int row,int col,int killid)
 bool Board::canMove6(int moveid,int row,int col,int killid)
 {
     /*炮的走棋规则*/
-    if(num_of_Stone(moveid,row,col)==1&&killid!=-1||(num_of_Stone(moveid,row,col)==0&&killid==-1))
+    if((num_of_Stone(moveid,row,col)==1&&killid!=-1)||(num_of_Stone(moveid,row,col)==0&&killid==-1))
         return true;
 
     return false;
@@ -865,35 +894,41 @@ void Board::click(int id,int row,int col)
     {
         if(canMove(_selectid,row,col,id))
         {
-            //走之前先入栈
-            for(int i=0;i<32;i++)
-            {
-
-                stone[i].push(_s[i]);
-                //qDebug()<<stone[i].top()._id<<stone[i].top()._row<<stone[i].top()._col;
-            }
-            /*走棋*/
-            _s[_selectid]._row=row;
-            _s[_selectid]._col=col;
-
-            if(id!=-1)
-            {
-                _s[id]._dead=true;
-                //棋子死后行列要置到棋盘外!!!
-                _s[id]._row=100;
-                _s[id]._col=100;
-            }
-
-            //判断是否自己断气
-            qi();
-
-            _s[_selectid]._select=false;
-            _selectid=-1;
-            _bRedTurn=!_bRedTurn;
-            update();
+            moveto(_selectid,row,col,id);
         }
+
     }
 }
+
+void Board::moveto(int moveid,int row,int col,int killid){
+    //走之前先入栈
+    for(int i=0;i<32;i++)
+    {
+
+        stone[i].push(_s[i]);
+    }
+    /*走棋*/
+    _s[moveid]._row=row;
+    _s[moveid]._col=col;
+
+    if(killid!=-1)
+    {
+        _s[killid]._dead=true;
+        //棋子死后行列要置到棋盘外!!!
+        _s[killid]._row=100;
+        _s[killid]._col=100;
+    }
+
+    //判断是否自己断气
+    qi();
+
+    _s[_selectid]._select=false;
+    _selectid=-1;
+    _bRedTurn=!_bRedTurn;
+    update();
+}
+
+
 int Board::num_of_Stone(int moveid,int row,int col)
 {
     int i;
@@ -936,8 +971,6 @@ int Board::num_of_Stone(int moveid,int row,int col)
 
 void Board::state()
 {
-
-
     if(num_of_DXB(!_bRedTurn)==5&&_bRedTurn)
     {
         _state=HEI;
@@ -1012,6 +1045,7 @@ void Board::backMove()
             stone[i].pop();
         }
     }
+
 }
 
 
